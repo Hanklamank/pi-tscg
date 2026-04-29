@@ -15,7 +15,7 @@ import type {
 } from "@mariozechner/pi-coding-agent";
 
 // Plugin version — keep in sync with package.json on every release.
-const PLUGIN_VERSION = "0.2.1";
+const PLUGIN_VERSION = "0.2.2";
 const STATUS_PREFIX = `pi-tscg v${PLUGIN_VERSION}`;
 
 type Profile = "light" | "balanced" | "aggressive";
@@ -70,7 +70,7 @@ const DEFAULTS: TscgSettings = {
 	profile: "balanced",
 	excludeTools: [],
 	showFooterStats: true,
-	aggressiveMaxDescChars: 200,
+	aggressiveMaxDescChars: 150,
 	extendedOperators: true,
 	pruneJsonOverhead: true,
 	resultCompression: true,
@@ -1093,14 +1093,37 @@ function compressToolResultText(
 ): string {
 	let out = text;
 
-	// Tool-specific preprocessing — only safe transforms that don't change semantics.
-	if (toolName === "bash" || isCustomTool(toolName)) {
-		out = collapseWhitespace(out);
-		out = foldDuplicateLines(out);
+	// JSON-Pruning: wenn der ganze Output ein JSON-String ist (typisch bei MCP-Tools),
+	// die nicht-semantischen Schema-Metadaten ($schema, $id, $comment, leere examples/enum)
+	// rausstrippen. $ref bleibt — das ist load-bearing.
+	const trimmed = out.trim();
+	if (
+		(trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+		(trimmed.startsWith("[") && trimmed.endsWith("]"))
+	) {
+		try {
+			const parsed = JSON.parse(trimmed);
+			const pruned = pruneJsonOverhead(parsed);
+			const reformatted = JSON.stringify(pruned);
+			// Nur ersetzen, wenn das Ergebnis kleiner ist (sonst bringt's nichts)
+			if (reformatted.length < out.length) {
+				out = reformatted;
+			}
+		} catch {
+			// kein valides JSON → weiter mit Original-Text
+		}
 	}
 
-	// SDM (filler-word removal) is safe on natural-language-heavy outputs.
-	// Skip on tools whose output is strictly structured (ls/grep/find/read line numbers).
+	// Whitespace-Compaction und Duplicate-Line-Folding sind auf ALLEN Tool-Outputs safe
+	// (außer Edits/Writes, die werden vom resultExcludeTools-Check vorher schon abgewiesen).
+	// Sie ändern keine Bedeutung — nur Doppel-Leerzeilen werden zusammengefasst und
+	// 4+ identische Folgezeilen kollabieren zu einer Zeile mit Counter.
+	out = collapseWhitespace(out);
+	out = foldDuplicateLines(out);
+
+	// SDM (filler-word removal) ist nur auf natürlicher Sprache safe.
+	// Auf strukturierten Outputs (read/grep/find/ls) würde SDM Pfadteile oder
+	// Treffer-Strings zerschneiden — daher dort weglassen.
 	if (toolName === "bash" || isCustomTool(toolName)) {
 		try {
 			out = applySDMToText(out);
