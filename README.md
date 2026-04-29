@@ -16,7 +16,7 @@ and every tool-result is shorter — without breaking tool-calling.
 TSCG: last −8.3% · session −8.3% · res −62% · saved 14.6k (aggressive)
 ```
 
-- **Drop-in.** `pi install pi-tscg` and you're done. No code changes anywhere.
+- **Drop-in.** `pi install npm:pi-tscg` and you're done. No code changes anywhere.
 - **Provider-agnostic.** Works on Anthropic API, OpenAI API, and Ollama out of
   the box. Gemini support is wired (skeleton); see Roadmap.
 - **Lossless on tool-call dispatch.** Tool names and JSON schemas keep their
@@ -26,12 +26,43 @@ TSCG: last −8.3% · session −8.3% · res −62% · saved 14.6k (aggressive)
 
 ## Install
 
+You need [Pi](https://github.com/badlogic/pi-mono) installed first:
+
 ```bash
-pi install pi-tscg
+npm install -g @mariozechner/pi-coding-agent
 ```
 
-That pulls `@tscg/core` along. Restart Pi (or run `/reload`) and you should see
-`TSCG: ready (balanced)` in the footer.
+Then add the plugin from npm:
+
+```bash
+pi install npm:pi-tscg
+```
+
+> **Note the `npm:` prefix** — Pi's package manager uses scheme prefixes
+> (`npm:`, `git:`, `https://`) to pick the source. `pi install pi-tscg`
+> without the prefix will not work.
+
+Alternative — install straight from GitHub:
+
+```bash
+pi install git:github.com/Nick-Wolf-HLK/pi-tscg
+```
+
+Verify it's there:
+
+```bash
+pi list
+```
+
+Now start (or restart) Pi — or run `/reload` inside a running session — and
+you should see `TSCG: ready (balanced)` in the footer. The dependency
+`@tscg/core` is pulled in automatically.
+
+### Removing it
+
+```bash
+pi remove npm:pi-tscg
+```
 
 ## What it does — three levers
 
@@ -172,16 +203,23 @@ Supabase tool catalogs) Lever 1 alone climbs to 30–50 %.
 ## Development
 
 ```bash
-git clone https://github.com/dominicwolf/pi-tscg.git
+git clone https://github.com/Nick-Wolf-HLK/pi-tscg.git
 cd pi-tscg
 npm install
 npm run typecheck
 ```
 
-Test locally without publishing:
+Test locally without publishing — point Pi straight at the extension entry
+file with `-e`:
 
 ```bash
-pi install /absolute/path/to/pi-tscg
+pi -e ./extensions/tscg.ts
+```
+
+Or install the working copy from your local git checkout:
+
+```bash
+pi install git:$(pwd)
 ```
 
 ## Publishing
