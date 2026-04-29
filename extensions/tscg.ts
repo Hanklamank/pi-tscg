@@ -15,7 +15,7 @@ import type {
 } from "@mariozechner/pi-coding-agent";
 
 // Plugin version — keep in sync with package.json on every release.
-const PLUGIN_VERSION = "0.2.0";
+const PLUGIN_VERSION = "0.2.1";
 const STATUS_PREFIX = `pi-tscg v${PLUGIN_VERSION}`;
 
 type Profile = "light" | "balanced" | "aggressive";
@@ -59,6 +59,8 @@ interface SessionStats {
 	cachedRequests: number;
 	cacheProviderMode: CacheMode;
 	lastProvider: Provider;
+	// Total-Payload-Tracking — für Gesamt-Einsparungs-Anzeige
+	totalSentPayloadTokens: number;
 }
 
 type ToolFormat = "anthropic" | "openai-completions" | "openai-responses" | "unknown";
@@ -297,6 +299,17 @@ export default function (pi: ExtensionAPI): void {
 		stats.totalCompressedTokens += compressedTokens;
 		stats.lastSavingsPercent = savedPct;
 		stats.lastSavingsTokens = savedTokens;
+
+		// Total-Payload-Größe (nach Compression) für Gesamt-Einsparungs-Anzeige
+		try {
+			const finalPayload = { ...p, tools: merged };
+			stats.totalSentPayloadTokens += estimateTokens(
+				JSON.stringify(finalPayload),
+				model,
+			);
+		} catch {
+			// Bei Serialisierungs-Problemen Total-Stats unverändert lassen
+		}
 
 		updateFooter(ctx);
 
@@ -653,6 +666,14 @@ export default function (pi: ExtensionAPI): void {
 		if (totalSaved > 0) {
 			parts.push(`saved ${formatTokens(totalSaved)}`);
 		}
+		// Gesamt-Einsparungs-Quote: was wir gespart haben relativ zur hypothetischen
+		// "ohne Plugin"-Last (= tatsächlich gesendete Payload + gespartes Material)
+		if (totalSaved > 0 && stats.totalSentPayloadTokens > 0) {
+			const denom = stats.totalSentPayloadTokens + totalSaved;
+			const totalRate = (totalSaved / denom) * 100;
+			const decimals = totalRate < 10 ? 1 : 0;
+			parts.push(`total −${totalRate.toFixed(decimals)}%`);
+		}
 		if (settings.enablePromptCache && stats.cachedRequests > 0) {
 			const modeLabel = stats.cacheProviderMode
 				? ` ${stats.cacheProviderMode}`
@@ -682,6 +703,7 @@ function freshStats(): SessionStats {
 		cachedRequests: 0,
 		cacheProviderMode: null,
 		lastProvider: "unknown",
+		totalSentPayloadTokens: 0,
 	};
 }
 
@@ -701,6 +723,7 @@ function resetStats(s: SessionStats): void {
 	s.cachedRequests = 0;
 	s.cacheProviderMode = null;
 	s.lastProvider = "unknown";
+	s.totalSentPayloadTokens = 0;
 }
 
 function isValidProfile(s: string): s is Profile {

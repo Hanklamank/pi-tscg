@@ -1,6 +1,6 @@
 {
   "name": "pi-tscg",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Drop-in tool-schema and tool-result compression for the Pi coding-agent. Wraps @tscg/core, adds provider-aware prompt-cache awareness (Anthropic/OpenAI/Ollama) and lossy tool-result truncation. Provider-agnostic, deterministic, tool-call dispatch unchanged.",
   "keywords": [
     "pi",
